@@ -2,18 +2,18 @@
   <!-- Range selectors -->
   <div class="flex items-center gap-2">
     <label class="text-sm font-medium">Start Period</label>
-    <select class="border rounded px-2 py-1" [ngModel]="startMonth()" (ngModelChange)="startMonth.set($event); onChangeRange()">
+    <select class="border rounded px-2 py-1" [ngModel]="store.startMonth()" (ngModelChange)="onStartMonthChange($event)">
       <option *ngFor="let m of monthsOpts" [ngValue]="m.v">{{m.n}}</option>
     </select>
-    <select class="border rounded px-2 py-1" [ngModel]="startYear()" (ngModelChange)="startYear.set($event); onChangeRange()">
+    <select class="border rounded px-2 py-1" [ngModel]="store.startYear()" (ngModelChange)="onStartYearChange($event)">
       <option *ngFor="let y of years" [ngValue]="y">{{y}}</option>
     </select>
 
     <label class="ml-4 text-sm font-medium">End Period</label>
-    <select class="border rounded px-2 py-1" [ngModel]="endMonth()" (ngModelChange)="endMonth.set($event); onChangeRange()">
+    <select class="border rounded px-2 py-1" [ngModel]="store.endMonth()" (ngModelChange)="onEndMonthChange($event)">
       <option *ngFor="let m of monthsOpts" [ngValue]="m.v">{{m.n}}</option>
     </select>
-    <select class="border rounded px-2 py-1" [ngModel]="endYear()" (ngModelChange)="endYear.set($event); onChangeRange()">
+    <select class="border rounded px-2 py-1" [ngModel]="store.endYear()" (ngModelChange)="onEndYearChange($event)">
       <option *ngFor="let y of years" [ngValue]="y">{{y}}</option>
     </select>
   </div>
@@ -24,40 +24,63 @@
       <thead>
         <tr>
           <th class="sticky left-0 bg-gray-50 z-10 text-left px-3 py-2 border-b font-semibold">Category</th>
-          <th *ngFor="let m of months()" class="px-3 py-2 border-b text-right font-semibold">{{ m.label }}</th>
+          <th *ngFor="let m of store.months()" class="px-3 py-2 border-b text-right font-semibold">{{ m.label }}</th>
         </tr>
       </thead>
 
       <!-- Income groups -->
       <tbody>
         <tr>
-          <td class="bg-gray-100 text-sm font-bold px-3 py-2 border-y" [attr.colspan]="months().length + 1">Income</td>
+          <td class="bg-gray-100 text-sm font-bold px-3 py-2 border-y" [attr.colspan]="store.months().length + 1">Income</td>
         </tr>
 
-        <ng-container *ngFor="let g of incomeGroups(); trackBy: trackGroup">
+        <ng-container *ngFor="let g of store.incomeGroups(); trackBy: trackGroup">
           <tr>
-            <td class="sticky left-0 bg-white z-10 px-3 py-2 border-b font-semibold">{{ g.name }}</td>
-            <td *ngFor="let m of months()" class="px-3 py-2 border-b text-right text-gray-400 text-sm italic"> </td>
+            <td class="sticky left-0 bg-white z-10 px-3 py-2 border-b font-semibold">
+              <input
+                class="border rounded px-2 py-1 w-56 font-semibold"
+                [ngModel]="g.name"
+                (ngModelChange)="renameGroup(g, $event)"
+                type="text"
+                [attr.aria-label]="'Rename parent category ' + g.name"
+              />
+            </td>
+            <td *ngFor="let m of store.months()" class="px-3 py-2 border-b text-right text-gray-400 text-sm italic"> </td>
           </tr>
 
           <ng-container *ngFor="let r of g.rows; trackBy: trackRow">
             <tr>
               <td class="sticky left-0 bg-white z-10 px-3 py-1 border-b">
                 <div class="flex items-center gap-2">
-                  <input class="border rounded px-2 py-1 w-56" [(ngModel)]="r.name" />
+                  <input
+                    class="border rounded px-2 py-1 w-56"
+                    [ngModel]="r.name"
+                    (ngModelChange)="renameRow(r, $event)"
+                    type="text"
+                  />
                   <button class="text-red-600 text-xs px-2 py-1 border rounded" (click)="deleteRow(r)">Delete</button>
                 </div>
               </td>
-              <td *ngFor="let m of months(); let mi = index" class="px-3 py-1 border-b">
-                <input
-                  type="number"
-                  class="w-28 border rounded px-2 py-1 text-right focus:outline-none focus:ring"
-                  [value]="r.values[m.key] || 0"
-                  (input)="onInput(r, m.key, $event)"
-                  (keydown)="onKeydown($event, r, mi)"
-                  (contextmenu)="onContextMenu($event, r, m.key)"
-                  [attr.data-cell-id]="r.id + ':' + m.key"
-                />
+              <td *ngFor="let m of store.months(); let mi = index" class="px-3 py-1 border-b">
+                <div class="flex items-center gap-1">
+                  <input
+                    type="number"
+                    class="w-28 border rounded px-2 py-1 text-right focus:outline-none focus:ring"
+                    [value]="r.values[m.key] || 0"
+                    (input)="onInput(r, m.key, $event)"
+                    (keydown)="onKeydown($event, r, mi)"
+                    [attr.data-cell-id]="r.id + ':' + m.key"
+                  />
+                  <button
+                    type="button"
+                    class="px-2 py-1 text-xs border rounded text-blue-700 hover:bg-blue-50"
+                    (click)="applyToAll(r, m.key)"
+                    [attr.aria-label]="'Apply ' + (r.values[m.key] || 0) + ' to all months for ' + r.name"
+                    title="Apply this value to all months"
+                  >
+                    Apply
+                  </button>
+                </div>
               </td>
             </tr>
           </ng-container>
@@ -67,13 +90,13 @@
             <td class="sticky left-0 bg-white z-10 px-3 py-2 border-b">
               <button class="text-blue-700 text-sm px-2 py-1 border rounded" (click)="addRowUnder(g)">Add row to '{{g.name}}'</button>
             </td>
-            <td *ngFor="let m of months()" class="px-3 py-2 border-b"></td>
+            <td *ngFor="let m of store.months()" class="px-3 py-2 border-b"></td>
           </tr>
 
           <!-- Subtotal -->
           <tr class="bg-gray-50">
             <td class="sticky left-0 bg-gray-50 z-10 px-3 py-2 border-b font-semibold">Sub Totals</td>
-            <td *ngFor="let m of months()" class="px-3 py-2 border-b text-right font-semibold">
+            <td *ngFor="let m of store.months()" class="px-3 py-2 border-b text-right font-semibold">
               {{ subtotal(g, m.key) | number:'1.0-0' }}
             </td>
           </tr>
@@ -84,47 +107,70 @@
           <td class="sticky left-0 bg-white z-10 px-3 py-3 border-b">
             <button class="px-3 py-2 border rounded bg-white hover:bg-gray-50" (click)="addParent('income')">Add New Parent Category</button>
           </td>
-          <td *ngFor="let m of months()" class="px-3 py-3 border-b"></td>
+          <td *ngFor="let m of store.months()" class="px-3 py-3 border-b"></td>
         </tr>
 
         <!-- Income total -->
         <tr class="bg-gray-100">
           <td class="sticky left-0 bg-gray-100 z-10 px-3 py-2 border-y font-bold">Income Total</td>
-          <td *ngFor="let m of months()" class="px-3 py-2 border-y text-right font-bold">
-            {{ incomeTotalsByMonth()[m.key] | number:'1.0-0' }}
+          <td *ngFor="let m of store.months()" class="px-3 py-2 border-y text-right font-bold">
+            {{ store.incomeTotalsByMonth()[m.key] | number:'1.0-0' }}
           </td>
         </tr>
 
         <!-- Expenses header -->
         <tr>
-          <td class="bg-gray-100 text-sm font-bold px-3 py-2 border-y" [attr.colspan]="months().length + 1">Expenses</td>
+          <td class="bg-gray-100 text-sm font-bold px-3 py-2 border-y" [attr.colspan]="store.months().length + 1">Expenses</td>
         </tr>
 
         <!-- Expense groups -->
-        <ng-container *ngFor="let g of expenseGroups(); trackBy: trackGroup">
+        <ng-container *ngFor="let g of store.expenseGroups(); trackBy: trackGroup">
           <tr>
-            <td class="sticky left-0 bg-white z-10 px-3 py-2 border-b font-semibold">{{ g.name }}</td>
-            <td *ngFor="let m of months()" class="px-3 py-2 border-b text-right text-gray-400 text-sm italic"> </td>
+            <td class="sticky left-0 bg-white z-10 px-3 py-2 border-b font-semibold">
+              <input
+                class="border rounded px-2 py-1 w-56 font-semibold"
+                [ngModel]="g.name"
+                (ngModelChange)="renameGroup(g, $event)"
+                type="text"
+                [attr.aria-label]="'Rename parent category ' + g.name"
+              />
+            </td>
+            <td *ngFor="let m of store.months()" class="px-3 py-2 border-b text-right text-gray-400 text-sm italic"> </td>
           </tr>
 
           <ng-container *ngFor="let r of g.rows; trackBy: trackRow">
             <tr>
               <td class="sticky left-0 bg-white z-10 px-3 py-1 border-b">
                 <div class="flex items-center gap-2">
-                  <input class="border rounded px-2 py-1 w-56" [(ngModel)]="r.name" />
+                  <input
+                    class="border rounded px-2 py-1 w-56"
+                    [ngModel]="r.name"
+                    (ngModelChange)="renameRow(r, $event)"
+                    type="text"
+                  />
                   <button class="text-red-600 text-xs px-2 py-1 border rounded" (click)="deleteRow(r)">Delete</button>
                 </div>
               </td>
-              <td *ngFor="let m of months(); let mi = index" class="px-3 py-1 border-b">
-                <input
-                  type="number"
-                  class="w-28 border rounded px-2 py-1 text-right focus:outline-none focus:ring"
-                  [value]="r.values[m.key] || 0"
-                  (input)="onInput(r, m.key, $event)"
-                  (keydown)="onKeydown($event, r, mi)"
-                  (contextmenu)="onContextMenu($event, r, m.key)"
-                  [attr.data-cell-id]="r.id + ':' + m.key"
-                />
+              <td *ngFor="let m of store.months(); let mi = index" class="px-3 py-1 border-b">
+                <div class="flex items-center gap-1">
+                  <input
+                    type="number"
+                    class="w-28 border rounded px-2 py-1 text-right focus:outline-none focus:ring"
+                    [value]="r.values[m.key] || 0"
+                    (input)="onInput(r, m.key, $event)"
+                    (keydown)="onKeydown($event, r, mi)"
+                    [attr.data-cell-id]="r.id + ':' + m.key"
+                  />
+                  <button
+                    type="button"
+                    class="px-2 py-1 text-xs border rounded text-blue-700 hover:bg-blue-50"
+                    (click)="applyToAll(r, m.key)"
+                    [attr.aria-label]="'Apply ' + (r.values[m.key] || 0) + ' to all months for ' + r.name"
+                    title="Apply this value to all months"
+                  >
+                    Apply
+                  </button>
+                </div>
               </td>
             </tr>
           </ng-container>
@@ -134,13 +180,13 @@
             <td class="sticky left-0 bg-white z-10 px-3 py-2 border-b">
               <button class="text-blue-700 text-sm px-2 py-1 border rounded" (click)="addRowUnder(g)">Add row to '{{g.name}}'</button>
             </td>
-            <td *ngFor="let m of months()" class="px-3 py-2 border-b"></td>
+            <td *ngFor="let m of store.months()" class="px-3 py-2 border-b"></td>
           </tr>
 
           <!-- Subtotal -->
           <tr class="bg-gray-50">
             <td class="sticky left-0 bg-gray-50 z-10 px-3 py-2 border-b font-semibold">Sub Totals</td>
-            <td *ngFor="let m of months()" class="px-3 py-2 border-b text-right font-semibold">
+            <td *ngFor="let m of store.months()" class="px-3 py-2 border-b text-right font-semibold">
               {{ subtotal(g, m.key) | number:'1.0-0' }}
             </td>
           </tr>
@@ -151,48 +197,41 @@
           <td class="sticky left-0 bg-white z-10 px-3 py-3 border-b">
             <button class="px-3 py-2 border rounded bg-white hover:bg-gray-50" (click)="addParent('expense')">Add New Parent Category</button>
           </td>
-          <td *ngFor="let m of months()" class="px-3 py-3 border-b"></td>
+          <td *ngFor="let m of store.months()" class="px-3 py-3 border-b"></td>
         </tr>
 
         <!-- Expense total -->
         <tr class="bg-gray-100">
           <td class="sticky left-0 bg-gray-100 z-10 px-3 py-2 border-y font-bold">Total Expenses</td>
-          <td *ngFor="let m of months()" class="px-3 py-2 border-y text-right font-bold">
-            {{ expenseTotalsByMonth()[m.key] | number:'1.0-0' }}
+          <td *ngFor="let m of store.months()" class="px-3 py-2 border-y text-right font-bold">
+            {{ store.expenseTotalsByMonth()[m.key] | number:'1.0-0' }}
           </td>
         </tr>
 
         <!-- Profit/Loss -->
         <tr class="bg-green-50">
           <td class="sticky left-0 bg-green-50 z-10 px-3 py-2 border-b font-bold">Profit / Loss</td>
-          <td *ngFor="let m of months()" class="px-3 py-2 border-b text-right font-bold">
-            {{ profitLossByMonth()[m.key] | number:'1.0-0' }}
+          <td *ngFor="let m of store.months()" class="px-3 py-2 border-b text-right font-bold">
+            {{ store.profitLossByMonth()[m.key] | number:'1.0-0' }}
           </td>
         </tr>
 
         <!-- Opening -->
         <tr>
           <td class="sticky left-0 bg-white z-10 px-3 py-2 border-b font-semibold">Opening Balance</td>
-          <td *ngFor="let m of months()" class="px-3 py-2 border-b text-right">
-            {{ openingByMonth()[m.key] | number:'1.0-0' }}
+          <td *ngFor="let m of store.months()" class="px-3 py-2 border-b text-right">
+            {{ store.openingByMonth()[m.key] | number:'1.0-0' }}
           </td>
         </tr>
 
         <!-- Closing -->
         <tr class="bg-blue-50">
           <td class="sticky left-0 bg-blue-50 z-10 px-3 py-2 border-b font-bold">Closing Balance</td>
-          <td *ngFor="let m of months()" class="px-3 py-2 border-b text-right font-bold">
-            {{ closingByMonth()[m.key] | number:'1.0-0' }}
+          <td *ngFor="let m of store.months()" class="px-3 py-2 border-b text-right font-bold">
+            {{ store.closingByMonth()[m.key] | number:'1.0-0' }}
           </td>
         </tr>
       </tbody>
     </table>
-  </div>
-
-  <!-- Context menu -->
-  <div *ngIf="contextMenu() as ctx" class="fixed inset-0 z-50" (click)="closeContextMenu()">
-    <div class="absolute bg-white border rounded shadow p-2 text-sm" [ngStyle]="{ left: ctx.x + 'px', top: ctx.y + 'px' }" (click)="$event.stopPropagation()">
-      <button class="px-2 py-1 hover:bg-gray-100 rounded" (click)="applyToAll()">Apply to all</button>
-    </div>
   </div>
 </div>
