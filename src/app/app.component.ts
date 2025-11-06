@@ -1,13 +1,10 @@
 import { Component } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { BudgetBuilderComponent } from './budget-builder/budget-builder.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet],
-  templateUrl: './app.component.html',
-  styleUrl: './app.component.css'
+  imports: [BudgetBuilderComponent],
+  template: `<app-budget-builder />`,
 })
-export class AppComponent {
-  title = 'my-app';
-}
+export class AppComponent {}
